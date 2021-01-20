@@ -21,6 +21,8 @@ library(randomForest)
 library(here)
 library(cowplot); theme_set(theme_cowplot())
 
+# Source the random_forest_tree_extract.R script for getTree functions
+source(here("code", "dillon_example", "random_forest_tree_extract.R"))
 
 ################################################################################
 ########################### 1)  Import Data  ###################################
@@ -58,15 +60,11 @@ rf_inflow_pct_dillon_swe <-
   randomForest(inflow_pct ~ ., data = dillon_inflow_pct_swe)
 
 # Extract variable importance scores
-rf_inflow_pct_dillon_swe_VARIMPORT <- as.data.frame(rf_inflow_pct_dillon_swe$importance)
-rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- row.names(rf_inflow_pct_dillon_swe_VARIMPORT)
+rf_inflow_pct_dillon_swe_VARIMPORT <- as_tibble(rf_inflow_pct_dillon_swe$importance) %>% 
+  mutate(indicator = names(rf_inflow_pct_dillon_swe$forest$ncat))
 
-
-
-rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- row.names(rf_inflow_pct_dillon_swe_VARIMPORT)
-rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- factor(rf_inflow_pct_dillon_swe_VARIMPORT$indicator, 
-                                                       levels = c("jja_tair", "prev_ppt", "pdsi", "amj_ppt", "spei_12", "max_swe_in_av"))
-
+# Extract forest data
+rf_inflow_pct_dillon_swe_FOREST <- rf_getTree2(rf_inflow_pct_dillon_swe)
 
 ################################################################################
 ###########################  3) tidymodels  ####################################
@@ -78,6 +76,11 @@ tm_inflow_pct_dillon_swe <-  rand_forest(trees = 500, mode = "regression") %>%
   fit(inflow_pct ~ ., data = dillon_inflow_pct_swe)
 
 # Extract variable importance scores
+tm_inflow_pct_dillon_swe_VARIMPORT <- as_tibble(tm_inflow_pct_dillon_swe$fit$importance) %>% 
+  mutate(indicator = names(tm_inflow_pct_dillon_swe$fit$forest$ncat))
+
+# Extract forest data
+tm_inflow_pct_dillon_swe_FOREST <- tm_getTree2(tm_inflow_pct_dillon_swe)
 
 
 ################################################################################
@@ -85,6 +88,6 @@ tm_inflow_pct_dillon_swe <-  rand_forest(trees = 500, mode = "regression") %>%
 ################################################################################
 
 ################################################################################
-####################  5) Data Extraction for Analysis  #########################
+####################  5) Compare Extracted Output  #########################
 ################################################################################
 
