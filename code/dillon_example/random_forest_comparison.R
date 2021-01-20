@@ -39,20 +39,33 @@ indicator_impact_data <- paste(filefolder, files, sep = "/") %>%
   reduce(full_join, by = c("year", "basin")) %>% 
   filter(basin == "dillon") # remove unnecessary barker data
   
+# Prep data for the ML models
+# Note: many have na methods that don't require removing NA values a priori
+dillon_inflow_pct_swe <- filter(indicator_impact_data, basin == "dillon") %>% 
+  ungroup() %>% # needed to get rid of "basin" grouping variable
+  select(inflow_pct, max_swe_in_av, amj_ppt, prev_ppt, jja_tair, spei_12, pdsi) %>% 
+  na.omit()
 
 ################################################################################
 ###########################  2) randomForest  ##################################
 ################################################################################
 
-
-# Prep data
-dillon_inflow_pct_swe <- filter(indicator_impact_data, basin == "dillon") %>% 
-  select(., inflow_pct, max_swe_in_av, amj_ppt, prev_ppt, jja_tair, spei_12, pdsi) %>% na.omit()
-
-# Run randomForest 
+# Set seed for reproducibility
 set.seed(3002)
+
+# Run the model and save in a randomForest object
 rf_inflow_pct_dillon_swe <-
   randomForest(inflow_pct ~ ., data = dillon_inflow_pct_swe)
+
+# Extract variable importance scores
+rf_inflow_pct_dillon_swe_VARIMPORT <- as.data.frame(rf_inflow_pct_dillon_swe$importance)
+rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- row.names(rf_inflow_pct_dillon_swe_VARIMPORT)
+
+
+
+rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- row.names(rf_inflow_pct_dillon_swe_VARIMPORT)
+rf_inflow_pct_dillon_swe_VARIMPORT$indicator <- factor(rf_inflow_pct_dillon_swe_VARIMPORT$indicator, 
+                                                       levels = c("jja_tair", "prev_ppt", "pdsi", "amj_ppt", "spei_12", "max_swe_in_av"))
 
 
 ################################################################################
@@ -64,4 +77,14 @@ tm_inflow_pct_dillon_swe <-  rand_forest(trees = 500, mode = "regression") %>%
   set_engine("randomForest") %>%
   fit(inflow_pct ~ ., data = dillon_inflow_pct_swe)
 
+# Extract variable importance scores
+
+
+################################################################################
+###############################  4) mlr  #######################################
+################################################################################
+
+################################################################################
+####################  5) Data Extraction for Analysis  #########################
+################################################################################
 
