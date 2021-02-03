@@ -2,12 +2,13 @@
 
 # 1) randomForest package as used in NIDIS proposal
 # 2) tidymodels
-# 3) mlr3 (the updated version of mlr)
 
 # Note 1: We do not include caret as Max Kuhn is currently a tidymodel dev
 
 # Note 2: This is not a performance comparison. This is to evaluate ease of use
 # and accessing 'under the hood' data.
+
+# Note 3: May also consider mlr3 and its slew of associated packages
 
 # Keith Jennings
 # kjennings@lynkertech.com
@@ -16,7 +17,6 @@
 # Load packages
 library(tidyverse)
 library(tidymodels)
-library(mlr3)
 library(randomForest)
 library(here)
 library(cowplot); theme_set(theme_cowplot())
@@ -84,10 +84,6 @@ tm_inflow_pct_dillon_swe_FOREST <- tm_getTree2(tm_inflow_pct_dillon_swe)
 
 
 ################################################################################
-###############################  4) mlr  #######################################
-################################################################################
-
-################################################################################
-####################  5) Compare Extracted Output  #########################
+####################  4) Compare Extracted Output  #########################
 ################################################################################
 
