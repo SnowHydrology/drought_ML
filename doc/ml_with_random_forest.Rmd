@@ -21,7 +21,7 @@ Assumptions + simplicity.
 ## Model setup
 
 ### Packages and data
-A key part to any machine learning effort is the proper set up, training, and validation of the included models. tidymodels makes this process straightforward and reproducible. Conveniently, many of the same bits of code can be used, even when the model engine changes.
+A key part to any machine learning effort is the proper set up, training, and testing of the included models. `tidymodels` makes this process straightforward and reproducible. Conveniently, many of the same bits of code can be used, even when the model engine or type changes.
 
 First, let's load the packages we need:
 
@@ -34,40 +34,115 @@ library(cowplot); theme_set(theme_cowplot()) # I like the cowplot because it mak
 Next, we'll need to load some data:
 
 ```{r}
-df <- readRDS("doc/data/thermal_sensitivity.RDS")
+df <- readRDS("data/thermal_sensitivity.RDS")
 ```
 
 Look at the data
+
+```{r}
+head(df) %>% knitr::kable()
+```
+
+There are a few columns we won't need in our analysis, so we'll keep only the ones we need using the `select()` function.
+
+```{r}
+df <- df %>% 
+  select(str_order:basin_sto, therm_sens) %>% 
+  ungroup()
+```
+
 
 ### Prep the data
 The first thing you need to do is split the data into *training* and *testing* sets. We'll use the former to optimize the random forest models and the latter to independently test their efficacy. Here, we'll use functions from the `rsample` package within `tidymodels`.
 
 ```{r}
+# Set seed so that the analysis is reproducible
+set.seed(6547)
 
+# Split the data into training and testing
+df_split <- initial_split(data = df,
+                          prop = 0.75,  # This is the proportion of data allocated to training
+                          strata = "therm_sens")  # Stratify the sampling based on this variable
+
+# Make new data frames of the training and testing data
+df_train <- training(df_split)
+df_test <- testing(df_split)
 ```
+
+### Define the model
+The `parsnip` package in `tidymodels` lets us choose from a wide variety of models. You can view them all [here](https://www.tidymodels.org/find/parsnip/). We're going to use `rand_forest()` to create a random forest model.
+
+```{r}
+rf_mod <- rand_forest(mtry = 3, trees = 500) %>% 
+  set_engine("randomForest") %>% 
+  set_mode("regression")
+```
+
+You might now be thinking we could run the random forest now on the `df_train` and test it on `df_test`. Au contraire, using a single split between training and testing means all your inferences on model performance are a result of how the model fits that specific division. Instead, we'll split our training data split into several subsplits called folds through a process called k-fold (or v-fold) cross-validation. In each fold, a split occurs between analysis and assesment data (Kuhn and Johnson, 2019). The random forest model is first optimized on the analysis data and tested on the assessment data.
+
+```{r}
+df_folds <- vfold_cv(df_train, v = 10)
+```
+
+### Make a workflow
+
+Conveniently, `tidymodels` includes a workflow package that allows us to set up a reusable function for each model.
+
+```{r}
+rf_flow <- 
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_formula(therm_sens ~ .)
+```
+
+## Run the model
+
+### Run the cross-validation on analysis and assessment data
+
+Once we have the workflow defined, we can run the cross-validation routine.
+
+```{r message = FALSE}
+rf_fit <- 
+  rf_flow %>% 
+  fit_resamples(df_folds)
+```
+
+### Examine model metrics
+
+```{r}
+rf_metrics <- collect_metrics(rf_fit)
+knitr::kable(rf_metrics)
+```
+
 
 ## What if I don't have enough data?
 
-Most machine learning methods perform best when run using large datasets. Random forest, although its simple learning algorithm lends itself well to smaller datasets, is no exception. For some of our drought impact data, we may be limited to an extremely small set of outcomes. Annual skier visits in Colorado, for example, is a time series of just 23 values. Thus, a simpler approach (i.e., ordinary least squares regression) is likely advisable.
+Most machine learning methods perform best when run using large datasets. Random forest, although its simple learning algorithm lends itself well to smaller datasets, is no exception. For some of our drought impact data, we may be limited to an extremely small set of outcomes. Annual skier visits in Colorado, for example, is a time series of just 23 values. Thus, a simpler approach (i.e., ordinary least squares regression) is likely advisable. Fortunately, this can all be done in the `tidymodels` framework with a few changes.
 
+### Define the model
+Much as we used the `rand_forest()` function for the random forest exercise, we can use the `linear_reg()` function for linear regression.
+
+```{r}
+lm_mod <- linear_reg() %>% 
+  set_engine("lm")
+```
+
+### But what about??
+
+Manipulating data and preprocessing using `recipe` package and `step_*()` functions
+Hyperparameter tuning done in v-fold cross-validation
 
 
 ## Acknowledgments
 This was adapted from the following excellent articles:
--<https://juliasilge.com/blog/intro-tidymodels/>
--<https://www.brodrigues.co/blog/2018-11-25-tidy_cv/>
--<https://hansjoerg.me/2020/02/09/tidymodels-for-machine-learning/#tuning-model-parameters-tune-and-dials>
+
+- <https://juliasilge.com/blog/intro-tidymodels/>
+- <https://www.brodrigues.co/blog/2018-11-25-tidy_cv/>
+- <https://hansjoerg.me/2020/02/09/tidymodels-for-machine-learning/#tuning-model-parameters-tune-and-dials>
 
 
 
 
-```{r cars}
-summary(cars)
-# Compute new variable
-cars <- cars %>% 
-  mutate(speed_dist = speed / dist)
-summary(cars)
-```
 
 ## Including Plots
 
