@@ -1,0 +1,114 @@
+---
+  title: "Using Random Forest to Predict Wildfire Activity in Tidymodels"
+author: "Keith Jennings"
+output: github_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the libraries
+```{r}
+library(tidymodels)
+library(cowplot); theme_set(theme_cowplot())
+library(doMC); registerDoMC(cores = 4)
+```
+
+
+# Load the data
+```{r}
+data_dir = "../../data/wildfire/"
+df <- readRDS(paste0(data_dir, "all_data.RDS")) %>% ungroup() 
+```
+
+
+# Look at the data
+
+```{r}
+head(df) %>% knitr::kable()
+```
+
+There are a few columns we won't need in our analysis, so we'll keep only the ones we need using the `select()` function.
+
+```{r}
+#df <- df %>% 
+#  select(str_order:basin_sto, therm_sens) %>% 
+#  ungroup()
+```
+
+# Split
+
+The first thing you need to do is split the data into *training* and *testing* sets. We'll use the former to optimize the random forest models and the latter to independently test their efficacy. Here, we'll use functions from the `rsample` package within `tidymodels`.
+
+```{r}
+# Set seed so that the analysis is reproducible
+set.seed(6547)
+
+# Split the data into training and testing
+df_split <- initial_split(data = df,
+                          prop = 0.75,  # This is the proportion of data allocated to training
+                          strata = "FracBurnedArea")  # Stratify the sampling based on this variable
+
+# Make new data frames of the training and testing data
+df_train <- training(df_split)
+df_test <- testing(df_split)
+```
+
+# Create a recipe for the data
+
+
+```{r}
+df_recipe <- recipe(FracBurnedArea ~ ., data = df_train) %>% 
+  update_role(Ig_Date, Event_ID, Incid_Name, BurnedArea, huc10_area,
+              new_role = "misc") %>% 
+  step_corr(all_predictors()) %>% 
+  step_dummy(huc10, ecoregion) %>% 
+  step_naomit(all_predictors())
+```
+
+# Define the model
+The `parsnip` package in `tidymodels` lets us choose from a wide variety of models. You can view them all [here](https://www.tidymodels.org/find/parsnip/). We're going to use `rand_forest()` to create a random forest model.
+
+```{r}
+rf_mod <- rand_forest(mtry = 5, trees = 500) %>% 
+  set_engine("randomForest") %>% 
+  set_mode("regression")
+```
+
+# Create some folds
+
+You might now be thinking we could run the random forest now on the `df_train` and test it on `df_test`. Au contraire, using a single split between training and testing means all your inferences on model performance are a result of how the model fits that specific division. Instead, we'll split our training data split into several subsplits called folds through a process called k-fold (or v-fold) cross-validation. In each fold, a split occurs between analysis and assesment data (Kuhn and Johnson, 2019). The random forest model is first optimized on the analysis data and tested on the assessment data.
+
+```{r}
+df_folds <- vfold_cv(df_train, v = 10)
+```
+
+# Make a workflow
+
+Conveniently, `tidymodels` includes a workflow package that allows us to set up a reusable function for each model. Here, we can add the model and recipe that we created above.
+
+```{r}
+rf_flow <- 
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_recipe(df_recipe)
+```
+
+# Run the cross-validation on analysis and assessment data
+
+Once we have the workflow defined, we can run the cross-validation routine.
+
+```{r message = FALSE}
+rf_fit <- 
+  rf_flow %>% 
+  fit_resamples(df_folds, 
+                control = control_resamples(save_pred = TRUE, verbose = TRUE))
+```
+
+
+
+
+
+
+

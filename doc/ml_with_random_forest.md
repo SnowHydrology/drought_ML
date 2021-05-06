@@ -4,10 +4,10 @@ Keith Jennings
 
 ## Why tidymodels?
 
-Much like how the tidyverse is a group of packages for exploring,
-modifying, and plotting data, tidymodels provides a unified framework
+Much like how the `tidyverse` is a group of packages for exploring,
+modifying, and plotting data, `tidymodels` provides a unified framework
 for statistical modeling in R. Its function-based approach allows for
-intuitive model set up while also letting the user make any necessary
+intuitive model setup while also letting the user make any necessary
 edits without changing the entire script.
 
 ## Why random forest models?
@@ -30,12 +30,15 @@ bits of code can be used, even when the model engine or type changes.
 First, let’s load the packages we need:
 
 ``` r
-library(tidyverse)
 library(tidymodels)
 library(cowplot); theme_set(theme_cowplot()) # I like the cowplot because it makes plot pretty
 ```
 
-Next, we’ll need to load some data:
+Next, we’ll need to load some data. Here we’re going to use stream
+thermal sensitivity (the change in stream temperature per unit change in
+air temperature). We’ll then use a random forest model to evaluate
+phyisographic controls on stream thermal sensitivity, our outcome
+variable in this exercise.
 
 ``` r
 df <- readRDS("data/thermal_sensitivity.RDS")
@@ -87,6 +90,45 @@ df_train <- training(df_split)
 df_test <- testing(df_split)
 ```
 
+We should note here that the `recipes` package in `tidymodels` includes
+a variety of options for preprocessing data using their `step_*`
+functions where the \* represents a type of data manipulation. There
+[are many different
+functions](https://recipes.tidymodels.org/reference/index.html) with
+some examples below:
+
+  - `step_corr()` removes highly correlated variables
+  - `step_log()` log transforms the variables
+  - `step_dummy()` creates numeric variables from categorical ones
+  - `step_center()` centers the variable to produce a mean of zero
+  - `step_normalize()` centers and scales the variable (mean = 0, SD =
+    1)
+
+As far as I know, there is no `step_detrend()` that would automatically
+remove trends from an outcome or predictor variable. We could use
+`step_mutate()` to do this (and to create outcome anomalies). Whatever
+we do, we should make sure any transforms are clearly provided in the
+processing pipeline and not obscured in the processing pipeline.
+
+The `recipes` package also includes options for assigning roles to the
+variables. The `recipe()` function automatically assigns the lefthand
+side of the formula as the *outcome* and those on the righthand side as
+the *predictor* variables.
+
+Let’s take a look at what a simple recipe would look like for our
+thermal sensitivity dataset. Here, we’re creating a function so the
+recipe can be applied to both `df_train` and `df_test`.
+
+``` r
+df_recipe <- recipe(therm_sens ~ ., data = df_train)
+  # if you wanted to add step_* they would be piped in here (e.g. %>% step_center(all_numeric()))
+  # same for roles (we could add an ID column with %>% update_role(HUC10, new_role = "ID") )
+```
+
+In this case, using `recipe` didn’t serve much of a purpose because we
+didn’t add any steps or roles. However, the utility of this function
+comes in to play when producing more complicated recipes.
+
 ### Define the model
 
 The `parsnip` package in `tidymodels` lets us choose from a wide variety
@@ -117,13 +159,14 @@ df_folds <- vfold_cv(df_train, v = 10)
 ### Make a workflow
 
 Conveniently, `tidymodels` includes a workflow package that allows us to
-set up a reusable function for each model.
+set up a reusable function for each model. Here, we can add the model
+and recipe that we created above.
 
 ``` r
 rf_flow <- 
   workflow() %>%
   add_model(rf_mod) %>%
-  add_formula(therm_sens ~ .)
+  add_recipe(df_recipe)
 ```
 
 ## Run the model
@@ -186,6 +229,13 @@ This was adapted from the following excellent
   - <https://juliasilge.com/blog/intro-tidymodels/>
   - <https://www.brodrigues.co/blog/2018-11-25-tidy_cv/>
   - <https://hansjoerg.me/2020/02/09/tidymodels-for-machine-learning/#tuning-model-parameters-tune-and-dials>
+  - <https://www.tidymodels.org/start/resampling/>
+
+## Other resources
+
+  - Using knitr and rmarkdown: <https://r4ds.had.co.nz/r-markdown.html>
+  - Simple methods:
+    <https://stats.stackexchange.com/questions/135061/best-method-for-short-time-series>
 
 ## Including Plots
 
@@ -196,7 +246,7 @@ example:
 ggplot(cars, aes(dist, speed)) + geom_point()
 ```
 
-![](ml_with_random_forest_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+![](ml_with_random_forest_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 Note that the `echo = FALSE` parameter was added to the code chunk to
 prevent printing of the R code that generated the plot.

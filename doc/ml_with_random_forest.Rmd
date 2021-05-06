@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Why tidymodels?
 
-Much like how the tidyverse is a group of packages for exploring, modifying, and plotting data, tidymodels provides a unified framework for statistical modeling in R. Its function-based approach allows for intuitive model set up while also letting the user make any necessary edits without changing the entire script.
+Much like how the `tidyverse` is a group of packages for exploring, modifying, and plotting data, `tidymodels` provides a unified framework for statistical modeling in R. Its function-based approach allows for intuitive model setup while also letting the user make any necessary edits without changing the entire script.
 
 ## Why random forest models?
 
@@ -26,12 +26,11 @@ A key part to any machine learning effort is the proper set up, training, and te
 First, let's load the packages we need:
 
 ```{r message = FALSE}
-library(tidyverse)
 library(tidymodels)
 library(cowplot); theme_set(theme_cowplot()) # I like the cowplot because it makes plot pretty
 ```
 
-Next, we'll need to load some data:
+Next, we'll need to load some data. Here we're going to use stream thermal sensitivity (the change in stream temperature per unit change in air temperature). We'll then use a random forest model to evaluate phyisographic controls on stream thermal sensitivity, our outcome variable in this exercise.
 
 ```{r}
 df <- readRDS("data/thermal_sensitivity.RDS")
@@ -68,6 +67,8 @@ df_split <- initial_split(data = df,
 df_train <- training(df_split)
 df_test <- testing(df_split)
 ```
+
+We should note here that `tidymodels` includes a variety of options for preprocessing data using their `step_*` functions where the * represents a type of data manipulation. Examples below:
 
 ### Define the model
 The `parsnip` package in `tidymodels` lets us choose from a wide variety of models. You can view them all [here](https://www.tidymodels.org/find/parsnip/). We're going to use `rand_forest()` to create a random forest model.
@@ -139,7 +140,12 @@ This was adapted from the following excellent articles:
 - <https://juliasilge.com/blog/intro-tidymodels/>
 - <https://www.brodrigues.co/blog/2018-11-25-tidy_cv/>
 - <https://hansjoerg.me/2020/02/09/tidymodels-for-machine-learning/#tuning-model-parameters-tune-and-dials>
+- <https://www.tidymodels.org/start/resampling/>
 
+## Other resources
+
+- Using knitr and rmarkdown: <https://r4ds.had.co.nz/r-markdown.html>
+- Simple methods: <https://stats.stackexchange.com/questions/135061/best-method-for-short-time-series>
 
 
 
